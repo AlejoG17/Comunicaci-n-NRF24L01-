@@ -28,7 +28,7 @@ else:
 
 # --- Configuración del módulo NRF24L01 ---
 pipes = (b"\xe1\xf0\xf0\xf0\xf0", b"\xd2\xf0\xf0\xf0\xf0")
-nrf = NRF24L01(spi, csn, ce, channel=76, payload_size=1)
+nrf = NRF24L01(spi, csn, ce, channel=63, payload_size=1)
 
 # Configuración de RF_SETUP: velocidad 2 Mbps, potencia 0 dBm
 nrf.reg_write(0x06, 0b00001010)
