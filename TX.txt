@@ -1,0 +1,54 @@
+from machine import Pin, SPI
+from nrf24l01 import NRF24L01
+import network
+import struct
+import utime
+
+# --- Configuración de pines SPI para NRF24L01 ---
+csn = Pin(15, Pin.OUT, value=1)
+ce = Pin(14, Pin.OUT, value=0)
+spi = SPI(0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
+
+# --- Configuración de WiFi ---
+wifi = network.WLAN(network.STA_IF)
+wifi.active(True)
+
+SSID = "Iphone de Alejandro G"
+PASSWORD = "alejo123"
+wifi.connect(SSID, PASSWORD)
+
+# Esperar conexión WiFi (hasta 10 segundos)
+for _ in range(20):
+    if wifi.isconnected():
+        print("WiFi conectado:", wifi.ifconfig()[0])
+        break
+    utime.sleep(0.5)
+else:
+    print("No se pudo conectar al WiFi.")
+
+# --- Configuración del módulo NRF24L01 ---
+pipes = (b"\xe1\xf0\xf0\xf0\xf0", b"\xd2\xf0\xf0\xf0\xf0")
+nrf = NRF24L01(spi, csn, ce, channel=76, payload_size=1)
+
+# Configuración de RF_SETUP: velocidad 2 Mbps, potencia 0 dBm
+nrf.reg_write(0x06, 0b00001010)
+
+nrf.open_tx_pipe(pipes[0])
+nrf.open_rx_pipe(1, pipes[1])
+
+# --- Bucle de transmisión de RSSI por NRF24L01 ---
+while True:
+    if wifi.isconnected():
+        rssi = wifi.status('rssi')
+        if rssi is not None:
+            try:
+                nrf.stop_listening()
+                print("Enviando RSSI:", rssi, "dBm")
+                nrf.send(struct.pack("b", rssi))  # Enviar como entero con signo
+            except OSError:
+                print("Fallo al transmitir")
+    else:
+        print("WiFi desconectado. Reintentando...")
+        wifi.connect(SSID, PASSWORD)
+
+    utime.sleep(0.5)

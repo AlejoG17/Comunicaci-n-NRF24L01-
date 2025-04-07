@@ -1,0 +1,43 @@
+from machine import Pin, SPI, I2C
+import utime
+import struct
+from nrf24l01 import NRF24L01
+from ssd1306 import SSD1306_I2C
+
+# --- Inicialización de interfaces ---
+# I2C para pantalla OLED
+i2c_display = I2C(0, scl=Pin(9), sda=Pin(8), freq=400000)
+oled_display = SSD1306_I2C(128, 64, i2c_display)
+
+# SPI para NRF24L01
+spi_bus = SPI(0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))
+pin_csn = Pin(15, Pin.OUT, value=1)
+pin_ce = Pin(14, Pin.OUT, value=0)
+
+# --- Configuración de dirección de los pipes ---
+pipe_rx = b"\xe1\xf0\xf0\xf0\xf0"
+pipe_tx = b"\xd2\xf0\xf0\xf0\xf0"
+
+# --- Configuración del módulo NRF24L01 ---
+radio = NRF24L01(spi_bus, pin_csn, pin_ce, channel=63, payload_size=1)
+radio.open_rx_pipe(1, pipe_rx)
+radio.open_tx_pipe(pipe_tx)
+radio.reg_write(0x06, 0b00100010)  # Velocidad 2 Mbps, potencia 0 dBm
+
+radio.start_listening()
+
+# --- Función para mostrar el RSSI en la pantalla ---
+def mostrar_rssi(valor_dbm):
+    oled_display.fill(0)
+    oled_display.text("RSSI recibido:", 0, 10)
+    oled_display.text("{} dBm".format(valor_dbm), 0, 30)
+    oled_display.show()
+
+# --- Bucle principal de recepción ---
+while True:
+    if radio.any():
+        dato = radio.recv()
+        rssi_valor = struct.unpack("b", dato)[0]
+        print("RSSI:", rssi_valor, "dBm")
+        mostrar_rssi(rssi_valor)
+    utime.sleep(0.1)
